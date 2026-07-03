@@ -191,8 +191,12 @@ jobs:
             "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
           tar -xf sparkle.tar.xz bin/sign_update
 
+          # Write the private key to a file and sign via --ed-key-file. (The -s
+          # flag is deprecated/insecure and now exits non-zero.)
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$RUNNER_TEMP/sparkle_ed_key"
           # sign_update prints the enclosure attributes: sparkle:edSignature="..." length="..."
-          SIG=$(./bin/sign_update "Orchard-${VERSION}.dmg" -s "$SPARKLE_PRIVATE_KEY")
+          SIG=$(./bin/sign_update "Orchard-${VERSION}.dmg" --ed-key-file "$RUNNER_TEMP/sparkle_ed_key")
+          rm -f "$RUNNER_TEMP/sparkle_ed_key"
           echo "Signature attributes: $SIG"
 
           PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
