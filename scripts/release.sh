@@ -73,107 +73,74 @@ if [[ -n $(git status --porcelain) ]]; then
     fi
 fi
 
-# Update version in ContainerService.swift
-print_info "Updating version in ContainerService.swift..."
-if [[ -f "Orchard/ContainerService.swift" ]]; then
-    # Update the currentVersion variable
-    sed -i '' "s/let currentVersion = .*/let currentVersion = Bundle.main.infoDictionary?[\"CFBundleShortVersionString\"] as? String ?? \"$VERSION\"/" Orchard/ContainerService.swift
-    print_success "Updated ContainerService.swift"
-else
-    print_warning "ContainerService.swift not found, skipping version update"
-fi
+# Bump the marketing version.
+#
+# The Info.plist is generated from build settings (GENERATE_INFOPLIST_FILE=YES):
+#   CFBundleShortVersionString <- MARKETING_VERSION
+#   CFBundleVersion            <- CURRENT_PROJECT_VERSION (set to the CI run
+#                                 number by the release workflow)
+# So we bump MARKETING_VERSION here; Orchard/Info.plist holds only the Sparkle
+# keys and must NOT be edited by this script.
+print_info "Updating MARKETING_VERSION in project..."
+sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = $VERSION/g" Orchard.xcodeproj/project.pbxproj
+print_success "Updated MARKETING_VERSION to $VERSION"
 
-# Create/update Info.plist if it doesn't exist
-if [[ ! -f "Orchard/Info.plist" ]]; then
-    print_info "Creating Info.plist..."
-    cat > Orchard/Info.plist << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>\$(DEVELOPMENT_LANGUAGE)</string>
-    <key>CFBundleExecutable</key>
-    <string>\$(EXECUTABLE_NAME)</string>
-    <key>CFBundleIconFile</key>
-    <string></string>
-    <key>CFBundleIdentifier</key>
-    <string>\$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleName</key>
-    <string>\$(PRODUCT_NAME)</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>$VERSION</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>12.0</string>
-    <key>NSHumanReadableCopyright</key>
-    <string></string>
-    <key>NSMainStoryboardFile</key>
-    <string>Main</string>
-    <key>NSPrincipalClass</key>
-    <string>NSApplication</string>
-</dict>
-</plist>
-EOF
-    print_success "Created Info.plist"
-else
-    # Update existing Info.plist
-    print_info "Updating version in Info.plist..."
-    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Orchard/Info.plist 2>/dev/null || \
-    /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $VERSION" Orchard/Info.plist
-    print_success "Updated Info.plist"
-fi
+# Update the CHANGELOG.
+#
+# Preferred flow (Keep a Changelog): promote the "## [Unreleased]" section to
+# this version so hand-written notes are carried over, leaving a fresh empty
+# "## [Unreleased]" on top. If there's no Unreleased section, insert an empty
+# entry above the most recent version instead.
+print_info "Updating CHANGELOG..."
+DATE=$(date +%Y-%m-%d)
+temp_file=$(mktemp)
 
-# Create CHANGELOG entry
-print_info "Creating CHANGELOG entry..."
 if [[ ! -f "CHANGELOG.md" ]]; then
     cat > CHANGELOG.md << EOF
 # Changelog
 
-All notable changes to Orchard will be documented in this file.
+All notable changes to Orchard are documented in this file.
 
-## [$VERSION] - $(date +%Y-%m-%d)
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [$VERSION] - $DATE
 
 ### Added
 - Initial release
-
-### Changed
--
-
-### Fixed
--
-
 EOF
+elif grep -q '^## \[Unreleased\]' CHANGELOG.md; then
+    awk -v ver="$VERSION" -v date="$DATE" '
+        /^## \[Unreleased\]/ && !done {
+            print "## [Unreleased]"
+            print ""
+            print "## [" ver "] - " date
+            done = 1
+            next
+        }
+        { print }
+    ' CHANGELOG.md > "$temp_file" && mv "$temp_file" CHANGELOG.md
 else
-    # Add new version entry to existing changelog
-    temp_file=$(mktemp)
-    echo "# Changelog" > "$temp_file"
-    echo "" >> "$temp_file"
-    echo "All notable changes to Orchard will be documented in this file." >> "$temp_file"
-    echo "" >> "$temp_file"
-    echo "## [$VERSION] - $(date +%Y-%m-%d)" >> "$temp_file"
-    echo "" >> "$temp_file"
-    echo "### Added" >> "$temp_file"
-    echo "- " >> "$temp_file"
-    echo "" >> "$temp_file"
-    echo "### Changed" >> "$temp_file"
-    echo "- " >> "$temp_file"
-    echo "" >> "$temp_file"
-    echo "### Fixed" >> "$temp_file"
-    echo "- " >> "$temp_file"
-    echo "" >> "$temp_file"
-
-    # Append existing changelog content (skip header)
-    tail -n +4 CHANGELOG.md >> "$temp_file"
-    mv "$temp_file" CHANGELOG.md
+    awk -v ver="$VERSION" -v date="$DATE" '
+        /^## \[/ && !done {
+            print "## [" ver "] - " date
+            print ""
+            print "### Added"
+            print "- "
+            print ""
+            print "### Changed"
+            print "- "
+            print ""
+            print "### Fixed"
+            print "- "
+            print ""
+            done = 1
+        }
+        { print }
+    ' CHANGELOG.md > "$temp_file" && mv "$temp_file" CHANGELOG.md
 fi
-
-print_success "Created CHANGELOG entry for version $VERSION"
+rm -f "$temp_file" 2>/dev/null || true
+print_success "Updated CHANGELOG for version $VERSION"
 
 # Commit changes
 print_info "Committing version changes..."
