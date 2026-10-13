@@ -472,6 +472,9 @@ final class ContainerListService: ObservableObject {
             volumeMappings: volumeMappings,
             workingDirectory: config.initProcess.workingDirectory,
             dnsDomain: config.dns.domain ?? "",
+            dnsNameservers: config.dns.nameservers,
+            dnsSearchDomains: config.dns.searchDomains,
+            dnsOptions: config.dns.options,
             network: snapshot.networks.first?.network ?? "",
             // Recovery recreates the container; without these it would strip
             // every label (sandbox markers included).
@@ -528,6 +531,9 @@ final class ContainerListService: ObservableObject {
                 volumes: volumes,
                 publishedPorts: ports,
                 dnsDomain: config.dnsDomain,
+                dnsNameservers: config.dnsNameservers,
+                dnsSearchDomains: config.dnsSearchDomains,
+                dnsOptions: config.dnsOptions,
                 networkName: config.network,
                 autoRemove: config.removeAfterStop,
                 // Clamped here so no caller can trap the backend's UInt64 math with a
@@ -627,6 +633,9 @@ final class ContainerListService: ObservableObject {
                 workingDirectory: oldConfig.initProcess.workingDirectory,
                 commandOverride: oldConfig.initProcess.arguments.joined(separator: " "),
                 dnsDomain: oldConfig.dns.domain ?? "",
+                dnsNameservers: oldConfig.dns.nameservers,
+                dnsSearchDomains: oldConfig.dns.searchDomains,
+                dnsOptions: oldConfig.dns.options,
                 network: container.networks.first?.network ?? "",
                 // The mount-removal recreate must carry labels through too.
                 labels: oldConfig.labels

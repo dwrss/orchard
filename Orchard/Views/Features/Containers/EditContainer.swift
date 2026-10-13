@@ -60,6 +60,9 @@ struct EditContainerView: View {
             commandOverride: joinCommandLine(
                 [container.configuration.initProcess.executable] + container.configuration.initProcess.arguments
             ),
+            dnsNameservers: container.configuration.dns.nameservers,
+            dnsSearchDomains: container.configuration.dns.searchDomains,
+            dnsOptions: container.configuration.dns.options,
             labels: hiddenLabels,
             labelPairs: editableLabelPairs,
             cpus: container.configuration.resources.cpus,

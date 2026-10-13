@@ -911,6 +911,11 @@ struct ContainerRunConfig: Equatable {
     var workingDirectory: String = ""
     var commandOverride: String = ""
     var dnsDomain: String = ""
+    /// Resolver settings with no control in the form. They are carried so that recreating a
+    /// container (recovery, mount removal, edit) keeps the resolv.conf it was created with.
+    var dnsNameservers: [String] = []
+    var dnsSearchDomains: [String] = []
+    var dnsOptions: [String] = []
     var network: String = ""
     /// Labels to stamp on the container at creation (e.g. the sandbox marker).
     var labels: [String: String] = [:]

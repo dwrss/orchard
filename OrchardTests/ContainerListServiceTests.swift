@@ -203,6 +203,46 @@ func startContainerNotFoundRecreatesFromSnapshot() async throws {
     #expect(service.recoveryFailedContainerIDs.contains("web") == false)
 }
 
+/// A Compose-style resolver configuration, for checking that a recreate keeps it.
+private let composeDNSJSON = #"""
+{ "nameservers": ["1.1.1.1", "8.8.8.8"], "searchDomains": ["example.internal"], "options": ["ndots:1"] }
+"""#
+
+@MainActor
+@Test("startContainer: recovery keeps the snapshot's nameservers, search domains and options")
+func recoveryKeepsResolver() async throws {
+    let backend = MockContainerBackend()
+    backend.containers = [try makeContainer(id: "web", status: "running", dnsJSON: composeDNSJSON)]
+    let (service, _) = makeListService(backend)
+    await service.loadContainers()
+
+    backend.bootstrapAndStartHandler = { _ in throw makeError("container not found") }
+    await service.startContainer("web", maxRetries: 3, retryDelay: 0)
+    await awaitQuiescence { !service.loadingContainers.contains("web") }
+
+    let spec = try #require(backend.createdSpecs.first { $0.id == "web" })
+    #expect(spec.dnsNameservers == ["1.1.1.1", "8.8.8.8"])
+    #expect(spec.dnsSearchDomains == ["example.internal"])
+    #expect(spec.dnsOptions == ["ndots:1"])
+}
+
+@MainActor
+@Test("deleteMounts: the recreated container keeps its nameservers, search domains and options")
+func deleteMountsKeepsResolver() async throws {
+    let backend = MockContainerBackend()
+    backend.containers = [try makeContainer(id: "web", status: "running", dnsJSON: composeDNSJSON)]
+    let (service, _) = makeListService(backend)
+    await service.loadContainers()
+
+    let mount = Mount(type: MountType(tmpfs: nil, virtiofs: Virtiofs()), source: "/host", options: [], destination: "/data")
+    await service.deleteMounts([ContainerMount(mount: mount, containerIds: ["web"])])
+
+    let spec = try #require(backend.createdSpecs.first { $0.id == "web" })
+    #expect(spec.dnsNameservers == ["1.1.1.1", "8.8.8.8"])
+    #expect(spec.dnsSearchDomains == ["example.internal"])
+    #expect(spec.dnsOptions == ["ndots:1"])
+}
+
 // MARK: - refresh poll loops (driven through the public stop/start wiring)
 
 @MainActor

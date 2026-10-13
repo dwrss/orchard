@@ -334,7 +334,7 @@ func fixtureImageJSON(_ reference: String, digest: String = "sha256:abc") -> Str
 func makeContainer(
     id: String, status: String, labels: [String: String] = [:],
     imageReference: String = "nginx:latest", imageDigest: String = "sha256:abc",
-    cpus: Int = 1, memoryInBytes: Int = 1024
+    cpus: Int = 1, memoryInBytes: Int = 1024, dnsJSON: String = fixtureDNSJSON
 ) throws -> Container {
     let labelsJSON = labels.isEmpty
         ? "{}"
@@ -353,7 +353,7 @@ func makeContainer(
         "mounts": [],
         "platform": \(fixturePlatformJSON),
         "image": \(fixtureImageJSON(imageReference, digest: imageDigest)),
-        "dns": \(fixtureDNSJSON),
+        "dns": \(dnsJSON),
         "resources": { "cpus": \(cpus), "memoryInBytes": \(memoryInBytes) },
         "initProcess": \(fixtureInitProcessJSON)
       }
